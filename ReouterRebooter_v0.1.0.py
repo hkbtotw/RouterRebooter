@@ -2,15 +2,36 @@ import subprocess
 import time 
 import requests
 import json
+import RPi.GPIO as GPIO
+GPIO.setwarnings(False)
+
+
 
 printLevel=1
 
-timeToWakeUp=200
-numberOfRetries=5
-timeToNextPing=60
-timeBetweenRetries=5
-firstWait=250
-logFile="C:/Users/70018928/Documents/GitHub/RouterRebooter/rebootRouter.log"
+timeToWakeUp=120
+numberOfRetries=3
+timeToNextPing=2
+timeBetweenRetries=2
+firstWait=5
+resetWait=5
+#logFile="C:/Users/70018928/Documents/GitHub/RouterRebooter/rebootRouter.log"
+logFile="/home/pi/Project/RelayCtrl/rebootReouter.log"
+
+def Reset(rebootOk):
+    GPIO.setmode(GPIO.BCM)
+    Relay1_GPIO=4
+    print(" :: ",rebootOk)
+    GPIO.setup(Relay1_GPIO, GPIO.OUT)
+    print(" Turn Off ")
+    GPIO.output(Relay1_GPIO, GPIO.LOW)
+    time.sleep(2)
+    GPIO.output(Relay1_GPIO, GPIO.HIGH)
+    GPIO.cleanup()
+    print(" Turn On ")
+    rebootOk=1
+    return rebootOk
+
 
 def printDbg(level, arg):
     if(level>=printLevel):
@@ -18,13 +39,15 @@ def printDbg(level, arg):
     return None
 
 def runPing():
+    
     pingS=[]
-    pingResponse=subprocess.Popen(["ping","8.8.8.8"],stdout=subprocess.PIPE).stdout.read()
+    pingResponse=subprocess.Popen(["ping","-c4","8.8.8.8"],stdout=subprocess.PIPE).stdout.read()
+
     pingResponse=pingResponse.decode('utf-8')
     #print(' ==> ',pingResponse)
-    pingS.append(pingResponse.find("Received = 2"))
-    pingS.append(pingResponse.find("Received = 3"))
-    pingS.append(pingResponse.find("Received = 4"))
+    pingS.append(pingResponse.find("2 received"))
+    pingS.append(pingResponse.find("3 received"))
+    pingS.append(pingResponse.find("4 received"))
 
     if(pingS[0]>0 or pingS[1]>0 or pingS[2]>0):
         print(' :: ', pingS[0], ',' , pingS[1], ',', pingS[2])
@@ -50,10 +73,12 @@ def logToFile(line, appendNewLine=0, logFilePath=logFile):
 if(__name__=="__main__"):
     logToFile("+++++++",1)
     logToFile("Application Started",1)
-    time.sleep(firstWait)
+    #time.sleep(firstWait)
 
     while(True):
+
         pingSuccessful=runPing()
+        #print(" :: ",pingSuccessful)
 
         if(pingSuccessful>0):
             printDbg(0,"Ping Successful")
@@ -72,8 +97,10 @@ if(__name__=="__main__"):
             logToFile("Rebooting Router ...",1)
             rebootOk=0
             ### Reboot Router
+            rebootOk=Reset(rebootOk)
             if(rebootOk==1):
                 printDbg(0, "Waiting ofr router to wake up")
                 time.sleep(timeToWakeUp)
+ 
     
         
